@@ -81,30 +81,19 @@ npm run dev
 
 ## 🌐 Configuring Deployed / Remote OCR Service URLs
 
-By default, the application connects to the local OCR model engine running at `http://localhost:8000`. You can change this to point to a deployed/remote OCR engine in three ways:
+The backend server **dynamically reads `OCR_SERVICE_URL` from your `.env` file** on every request.
 
-### Option A: In the Frontend UI
-Open the **Batch Upload & Realtime OCR** page in the web app. Under the **OCR Model Engine Endpoint (FastAPI / PaddleOCR)** input box, change `http://localhost:8000` to your remote URL (e.g. `https://ocr-api.yourdomain.com`).
-
-### Option B: `.env` Environment File or Shell Variables
-Copy `.env.example` to `.env` in the root directory and set your custom OCR Service URL:
+### Setting Up Your Hosted OCR Endpoint in `.env`:
+Edit your `.env` file in the root project folder:
 ```env
 PORT=3000
-OCR_SERVICE_URL=https://ocr-api.yourdomain.com
-```
-Or set `OCR_SERVICE_URL` in your shell environment:
-```bash
-export OCR_SERVICE_URL="https://ocr-api.yourdomain.com"
-npm run server
+OCR_SERVICE_URL=https://your-hosted-ocr-domain.com
 ```
 
-### Option C: API Configuration Endpoint
-Send a POST request to update the active OCR service URL dynamically:
-```bash
-curl -X POST http://localhost:3000/api/cheques/config \
-  -H "Content-Type: application/json" \
-  -d '{"ocrServiceUrl": "https://ocr-api.yourdomain.com"}'
-```
+### How It Works:
+1. **Automatic UI Synchronization**: The UI automatically fetches the active engine link from `.env` via `GET /api/cheques/config` and displays the active endpoint badge (`Active OCR Engine: <link-from-env>`). No manual typing or UI link input is required.
+2. **Remote / Hosted Base64 Payload Delivery**: When pointing to a remote server or ngrok URL, [src/server/ocrServiceClient.js](file:///home/atomic-shadow/development/cts-cheque-ocr-sdk/src/server/ocrServiceClient.js) automatically transmits the file's **Base64 encoded bytes** (`fileContentBase64`) alongside `pdfPath` so remote OCR servers can process files even if local disk paths do not exist on the remote host.
+3. **Proxy & Ngrok Bypass Headers**: Automatic headers (`ngrok-skip-browser-warning: true`) are included on all requests so ngrok tunnels and cloud proxies don't block API calls.
 
 ---
 

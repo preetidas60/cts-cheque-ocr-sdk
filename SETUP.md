@@ -88,24 +88,22 @@ npx now-sdk deploy
 
 ## 5. Configuring the OCR Model Service URL
 
-By default, the backend connects to the local OCR model service at `http://localhost:8000`. You can configure it to point to a deployed/remote instance (e.g. `https://ocr-engine.yourdomain.com`):
+The backend server **dynamically parses your `.env` file on every request**.
 
-### Option A: In the Frontend UI
-1. Open the web app and click **Batch Upload & Realtime OCR** in the sidebar.
-2. Locate the **OCR Model Engine Endpoint (FastAPI / PaddleOCR)** input box.
-3. Enter your remote service URL (e.g. `https://ocr-engine.yourdomain.com`).
-4. Click **Process Cheques**.
-
-### Option B: Environment File (`.env`) & Variables (`OCR_SERVICE_URL`)
+### Setting Up `.env`:
 Copy `.env.example` to `.env` in the root project folder:
 ```bash
 cp .env.example .env
 ```
-Edit `.env` and set `OCR_SERVICE_URL`:
+Edit `.env` and set your OCR model service URL:
 ```env
 PORT=3000
-OCR_SERVICE_URL=https://ocr-engine.yourdomain.com
+OCR_SERVICE_URL=https://your-hosted-ocr-domain.com
 ```
+
+### Automatic Synchronization & Remote Processing:
+- **Instant `.env` Reading**: Any changes saved to `.env` are picked up dynamically by `src/server/ocrServiceClient.js` without requiring a server restart.
+- **Base64 Payload Delivery**: When connecting to remote, ngrok, or cloud-hosted OCR engines, the backend transmits Base64 file contents (`fileContentBase64`) alongside local file paths, enabling remote Python engines to process cheque files even if local disk paths do not exist on the remote host.
 
 ---
 
