@@ -1,0 +1,27 @@
+# Node & Python Dependencies
+node_modules/
+ocr-service/venv/
+.venv/
+
+# Build Outputs & Caches
+dist/
+client/dist/
+*.tsbuildinfo
+.jest_cache
+.DS_Store
+.now/
+target/
+
+# Environment Configuration
+.env
+.env.local
+
+# Local Database Files (Do NOT push to git)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Dynamic Local Storage Files (Do NOT push uploaded cheques to git)
+storage/*
+!storage/.gitkeep

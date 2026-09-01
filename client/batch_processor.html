@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheque OCR Batch Processor</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --ink: #16191d;
+    --ink-soft: #5c6470;
+    --ink-faint: #8b93a1;
+    --line: #e2e5ea;
+    --accent: #1f5fd0;
+    --accent-soft: #eaf0fc;
+    --good: #157a4a;
+    --good-bg: #e6f4ec;
+    --mid: #9a6400;
+    --mid-bg: #fdf1dc;
+    --low: #b3261e;
+    --low-bg: #fbe9e8;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b;
+      --panel: #1c2026;
+      --ink: #e8eaed;
+      --ink-soft: #a6aeba;
+      --ink-faint: #7b8494;
+      --line: #2c323a;
+      --accent: #6ea1ff;
+      --accent-soft: #1e2836;
+      --good: #6cd39a;
+      --good-bg: #16301f;
+      --mid: #e0b055;
+      --mid-bg: #33270f;
+      --low: #f28b82;
+      --low-bg: #351d1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 72px; }
+
+  header { margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; color: var(--accent); }
+  .sub { color: var(--ink-soft); font-size: 14px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  /* ---- drop zone ---- */
+  #drop {
+    border: 2px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 34px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #drop .big { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  #drop .small { color: var(--ink-faint); font-size: 13px; }
+  #picker { display: none; }
+
+  /* ---- selected file list ---- */
+  #files { margin-top: 16px; display: none; }
+  .files-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 168px; overflow-y: auto; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px 6px 4px 11px; font-size: 13px;
+  }
+  .chip button {
+    border: 0; background: none; color: var(--ink-faint);
+    cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 50%;
+  }
+  .chip button:hover { color: var(--low); background: var(--low-bg); }
+
+  /* ---- OR SERVER FOLDER ---- */
+  .or-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 16px 0; color: var(--ink-faint); font-size: 12.5px;
+  }
+  .or-divider::before, .or-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+  #folderRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #folderPath {
+    flex: 1; min-width: 260px; padding: 9px 11px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--ink);
+  }
+  #folderPath:focus { outline: none; border-color: var(--accent); }
+  #folderRow .note { flex-basis: 100%; font-size: 12.5px; color: var(--ink-faint); }
+
+  /* ---- parallelism control ---- */
+  #parallel {
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  #parallel .label { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+  #parallel input[type=number] {
+    width: 64px; padding: 6px 8px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+  }
+  #parallel input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+  #parallel .note { font-size: 12.5px; color: var(--ink-faint); flex-basis: 100%; }
+  #parallel.disabled { opacity: .55; pointer-events: none; }
+
+  .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  button.primary {
+    background: var(--accent); color: #fff; border: 0;
+    padding: 10px 20px; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--ink-soft);
+    padding: 9px 16px; border-radius: 7px; font-size: 14px; cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .hint { color: var(--ink-faint); font-size: 13px; }
+
+  /* ---- running state ---- */
+  #running { display: none; align-items: center; gap: 14px; flex: 1; min-width: 300px; }
+  .bar { height: 5px; background: var(--line); border-radius: 999px; overflow: hidden; margin: 7px 0 3px; }
+  .bar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
+  .live-note { font-size: 12.5px; color: var(--ink-faint); font-weight: 500; }
+  .spinner {
+    width: 20px; height: 20px; flex: none;
+    border: 2.5px solid var(--line); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-text { font-size: 14px; }
+  .run-text b { font-variant-numeric: tabular-nums; }
+  .run-note { color: var(--ink-faint); font-size: 13px; margin-top: 2px; }
+
+  /* ---- summary ---- */
+  #summary { display: none; }
+  .stats { display: flex; flex-wrap: wrap; gap: 28px; }
+  .stat .k { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
+  .stat .v { font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .v.fail { color: var(--low); }
+
+  /* ---- results table ---- */
+  #results { display: none; padding: 0; overflow: hidden; }
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--ink-faint); font-weight: 600; background: var(--bg);
+    position: sticky; top: 0; white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--bg); }
+  td.name { font-weight: 550; }
+  td.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13.5px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .none { color: var(--ink-faint); font-style: italic; }
+
+  .conf { display: inline-block; min-width: 52px; text-align: center;
+          padding: 2px 8px; border-radius: 5px; font-size: 13px;
+          font-weight: 600; font-variant-numeric: tabular-nums; }
+  .conf.g { color: var(--good); background: var(--good-bg); }
+  .conf.m { color: var(--mid);  background: var(--mid-bg); }
+  .conf.l { color: var(--low);  background: var(--low-bg); }
+  .conf.x { color: var(--ink-faint); background: var(--bg); font-weight: 500; }
+
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .badge.ok   { color: var(--good); background: var(--good-bg); }
+  .badge.bad  { color: var(--low);  background: var(--low-bg); }
+
+  #error {
+    display: none; border-left: 3px solid var(--low);
+    background: var(--low-bg); color: var(--low);
+    padding: 14px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px;
+  }
+
+  /* ---- results header + download ---- */
+  .results-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .results-title { font-size: 15px; font-weight: 650; }
+  .dl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dl-label { font-size: 12.5px; color: var(--ink-faint); }
+  .dl button { padding: 6px 14px; font-size: 13px; font-weight: 600; }
+  .dl .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+
+  /* ---- JSON viewer modal ---- */
+  #modal {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(10, 12, 15, .55);
+    padding: 40px 20px;
+    align-items: center; justify-content: center;
+  }
+  #modal.open { display: flex; }
+  .sheet {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius);
+    width: 100%; max-width: 900px; max-height: 100%;
+    display: flex; flex-direction: column;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+  }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .sheet-head .t { font-size: 15px; font-weight: 650; }
+  .sheet-head .acts { display: flex; align-items: center; gap: 8px; }
+  .sheet-head button { padding: 6px 13px; font-size: 13px; font-weight: 600; }
+  .sheet-body { overflow: auto; padding: 0; background: #0f172a; }
+  .sheet-body pre {
+    margin: 0; padding: 16px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 12.5px; line-height: 1.55; color: #f8fafc;
+    white-space: pre; tab-size: 2;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>CTS Cheque OCR Batch Processor</h1>
+    <div class="sub">Upload multiple cheque files or specify a server folder. Files are automatically created into batch directories and processed live.</div>
+  </header>
+
+  <div id="error"></div>
+
+  <div class="panel">
+    <div id="drop">
+      <div class="big">Drop cheque files here, or click to browse</div>
+      <div class="small" id="dropTypes">Multiple files at once</div>
+    </div>
+    <input type="file" id="picker" multiple>
+
+    <div class="or-divider">OR A FOLDER ON THE SERVER MACHINE</div>
+
+    <div id="folderRow">
+      <input type="text" id="folderPath" spellcheck="false"
+             placeholder="e.g. /home/atomic-shadow/development/cts-cheque-ocr-sdk/storage/BATCH-001">
+      <span class="note" id="folderNote">Every cheque file inside the server folder is indexed into a new batch automatically.</span>
+    </div>
+
+    <div id="files">
+      <div class="files-head">
+        <span id="count"></span>
+        <button class="ghost" id="clear" style="padding:4px 10px;font-size:12.5px">Clear all</button>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div id="parallel">
+      <span class="label">Parallel files</span>
+      <input type="number" id="threadsNum" min="1" value="4">
+      <input type="range" id="threadsRange" min="1" max="8" value="4">
+      <span class="note" id="threadsNote"></span>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="go" disabled>Process cheques</button>
+      <div class="hint" id="idleHint">Select cheque files, or type a folder path, to begin.</div>
+      <div id="running">
+        <div class="spinner"></div>
+        <div style="flex:1;min-width:260px">
+          <div class="run-text"><b id="doneCount">0</b> of <b id="runCount">0</b> done &mdash; elapsed <b id="timer">0.0s</b></div>
+          <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+          <div class="run-note">Results appear below as each cheque finishes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="summary">
+    <div class="stats">
+      <div class="stat"><div class="k">Cheques</div><div class="v" id="sTotal">&mdash;</div></div>
+      <div class="stat"><div class="k">Processed</div><div class="v" id="sOk">&mdash;</div></div>
+      <div class="stat"><div class="k">Failed</div><div class="v" id="sFail">&mdash;</div></div>
+      <div class="stat"><div class="k">Not received</div><div class="v" id="sPending">&mdash;</div></div>
+      <div class="stat"><div class="k">Total time</div><div class="v" id="sTime">&mdash;</div></div>
+      <div class="stat"><div class="k">Throughput</div><div class="v" id="sRate">&mdash;</div></div>
+    </div>
+  </div>
+
+  <div class="panel" id="results">
+    <div class="results-bar">
+      <div class="results-title">Live Results <span class="live-note" id="liveNote"></span></div>
+      <div class="dl">
+        <button class="ghost" id="viewJson">View JSON</button>
+        <span class="sep"></span>
+        <span class="dl-label">Download</span>
+        <button class="ghost" id="dlCsv">CSV</button>
+        <button class="ghost" id="dlJson">JSON</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File name</th>
+            <th>Account number</th>
+            <th style="text-align:right">Confidence</th>
+            <th>Account holder name</th>
+            <th style="text-align:right">Confidence</th>
+            <th style="text-align:right">Time taken</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="modal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="t" id="modalTitle">Batch JSON</div>
+      <div class="acts">
+        <span id="copied" style="display:none;color:var(--good);font-weight:600">Copied</span>
+        <button class="ghost" id="copyJson">Copy</button>
+        <button class="ghost" id="saveJson">Download</button>
+        <button class="ghost" id="closeModal">Close</button>
+      </div>
+    </div>
+    <div class="sheet-body"><pre id="jsonOut"></pre></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var picked = [];
+  var drop = document.getElementById('drop');
+  var picker = document.getElementById('picker');
+  var filesBox = document.getElementById('files');
+  var chips = document.getElementById('chips');
+  var countEl = document.getElementById('count');
+  var go = document.getElementById('go');
+  var idleHint = document.getElementById('idleHint');
+  var running = document.getElementById('running');
+  var runCount = document.getElementById('runCount');
+  var doneCount = document.getElementById('doneCount');
+  var barFill = document.getElementById('barFill');
+  var liveNote = document.getElementById('liveNote');
+  var timerEl = document.getElementById('timer');
+  var errBox = document.getElementById('error');
+  var summary = document.getElementById('summary');
+  var results = document.getElementById('results');
+  var rows = document.getElementById('rows');
+  var parallel = document.getElementById('parallel');
+  var threadsNum = document.getElementById('threadsNum');
+  var threadsRange = document.getElementById('threadsRange');
+  var threadsNote = document.getElementById('threadsNote');
+  var dropTypes = document.getElementById('dropTypes');
+  var folderPath = document.getElementById('folderPath');
+
+  var cfg = { defaultWorkerThreads: 4, maxWorkerThreads: 8, maxCheques: 250,
+              acceptedExtensions: ['.bmp', '.jpeg', '.jpg', '.pdf', '.png', '.tif', '.tiff'] };
+
+  var lastData = null;
+  var sawDone = false;
+  var received = 0;
+  var expected = 0;
+
+  render();
+
+  fetch('/api/cheques/config')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (c) { if (c) { cfg = c; } applyConfig(); })
+    .catch(function () { applyConfig(); });
+
+  function applyConfig() {
+    threadsRange.max = cfg.maxWorkerThreads;
+    threadsNum.max = cfg.maxWorkerThreads;
+    setThreads(cfg.defaultWorkerThreads);
+    picker.setAttribute('accept', cfg.acceptedExtensions.join(','));
+    dropTypes.textContent = 'Multiple files at once · ' + cfg.acceptedExtensions.join(' ');
+  }
+
+  function setThreads(value) {
+    var n = Math.round(Number(value));
+    if (!isFinite(n)) { n = cfg.defaultWorkerThreads; }
+    n = Math.max(1, Math.min(n, cfg.maxWorkerThreads));
+    threadsNum.value = n;
+    threadsRange.value = n;
+    threadsNote.textContent = n + ' cheques processed simultaneously.';
+    return n;
+  }
+
+  folderPath.addEventListener('input', render);
+  threadsRange.addEventListener('input', function () { setThreads(threadsRange.value); });
+  threadsNum.addEventListener('input', function () { threadsRange.value = threadsNum.value; });
+  threadsNum.addEventListener('change', function () { setThreads(threadsNum.value); });
+
+  drop.addEventListener('click', function () { picker.click(); });
+  picker.addEventListener('change', function () { add(picker.files); picker.value = ''; });
+
+  ['dragenter', 'dragover'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (ev) { add(ev.dataTransfer.files); });
+
+  document.getElementById('clear').addEventListener('click', function () { picked = []; render(); });
+
+  function add(list) {
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      var ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+      if (cfg.acceptedExtensions.indexOf(ext) !== -1) {
+        if (!picked.some(function (p) { return p.name === f.name && p.size === f.size; })) {
+          picked.push(f);
+        }
+      }
+    }
+    render();
+  }
+
+  function render() {
+    var folder = folderPath.value.trim();
+    filesBox.style.display = picked.length ? 'block' : 'none';
+    go.disabled = picked.length === 0 && !folder;
+    idleHint.textContent = picked.length ? picked.length + ' file(s) ready.' : (folder ? 'Will read from ' + folder : 'Select files or type folder path.');
+    countEl.textContent = picked.length + ' file(s) selected';
+    chips.innerHTML = '';
+    picked.forEach(function (f, i) {
+      var chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = f.name + ' ';
+      var btn = document.createElement('button');
+      btn.textContent = '×';
+      btn.addEventListener('click', function (e) { e.stopPropagation(); picked.splice(i, 1); render(); });
+      chip.appendChild(btn);
+      chips.appendChild(chip);
+    });
+  }
+
+  go.addEventListener('click', function () {
+    var folder = folderPath.value.trim();
+    if (!picked.length && !folder) return;
+
+    var threads = setThreads(threadsNum.value);
+    var form = new FormData();
+    picked.forEach(function (f) { form.append('files', f); });
+    if (folder) form.append('folderPath', folder);
+    form.append('workerThreads', threads);
+
+    errBox.style.display = 'none';
+    rows.innerHTML = '';
+    lastData = null;
+    sawDone = false;
+    received = 0;
+    expected = picked.length;
+    setSummary(null);
+    summary.style.display = 'block';
+    results.style.display = 'block';
+    go.disabled = true;
+    running.style.display = 'flex';
+    runCount.textContent = picked.length || '…';
+    doneCount.textContent = '0';
+    barFill.style.width = '0%';
+    liveNote.textContent = 'receiving…';
+
+    var t0 = Date.now();
+    var tick = setInterval(function () {
+      timerEl.textContent = ((Date.now() - t0) / 1000).toFixed(1) + 's';
+    }, 100);
+
+    fetch('/api/cheques/process/stream', { method: 'POST', body: form })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return readStream(res.body.getReader());
+      })
+      .catch(function (e) {
+        errBox.textContent = e.message;
+        errBox.style.display = 'block';
+      })
+      .then(function () {
+        clearInterval(tick);
+        running.style.display = 'none';
+        go.disabled = false;
+        picked = [];
+        render();
+      });
+  });
+
+  function readStream(reader) {
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    return reader.read().then(function step(chunk) {
+      if (chunk.done) {
+        if (buffer.trim()) handle(JSON.parse(buffer));
+        return;
+      }
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop();
+      lines.forEach(function (line) {
+        if (line.trim()) handle(JSON.parse(line));
+      });
+      return reader.read().then(step);
+    });
+  }
+
+  function handle(evt) {
+    if (evt.type === 'batch') {
+      lastData = { batchId: evt.batchId, status: 'PROCESSING', totalFiles: evt.totalFiles, totalCheques: evt.totalCheques, processedCount: 0, failedCount: 0, results: [] };
+      expected = evt.totalCheques;
+      runCount.textContent = evt.totalCheques;
+      setSummary(lastData);
+    } else if (evt.type === 'cheque') {
+      lastData.results.push(evt.result);
+      if (evt.result.status === 'PROCESSED') lastData.processedCount++; else lastData.failedCount++;
+      doneCount.textContent = evt.done;
+      barFill.style.width = (evt.done / evt.total * 100) + '%';
+      addRow(evt.result);
+      setSummary(lastData);
+    } else if (evt.type === 'done') {
+      lastData.status = evt.status;
+      lastData.processedCount = evt.processedCount;
+      lastData.failedCount = evt.failedCount;
+      lastData.processingTimeSeconds = evt.processingTimeSeconds;
+      lastData.throughputChequesPerSec = evt.throughputChequesPerSec;
+      setSummary(lastData);
+    }
+  }
+
+  function setSummary(d) {
+    document.getElementById('sTotal').textContent = d ? d.totalCheques : '—';
+    document.getElementById('sOk').textContent = d ? d.processedCount : '—';
+    document.getElementById('sFail').textContent = d ? d.failedCount : '—';
+    document.getElementById('sPending').textContent = d ? Math.max(d.totalCheques - d.processedCount - d.failedCount, 0) : '—';
+    document.getElementById('sTime').textContent = d && d.processingTimeSeconds != null ? d.processingTimeSeconds + 's' : '—';
+    document.getElementById('sRate').textContent = d && d.throughputChequesPerSec != null ? d.throughputChequesPerSec + '/s' : '—';
+  }
+
+  function addRow(r) {
+    var tr = document.createElement('tr');
+    tr.appendChild(td(r.fileName, 'name'));
+    tr.appendChild(td(r.accountNumber ? r.accountNumber.value : null, 'mono'));
+    tr.appendChild(conf(r.accountNumber));
+    tr.appendChild(td(r.accountHolderName ? r.accountHolderName.value : null, ''));
+    tr.appendChild(conf(r.accountHolderName));
+    tr.appendChild(td(r.ocrDurationMs == null ? '—' : (r.ocrDurationMs / 1000).toFixed(2) + 's', 'num'));
+    var tdSt = document.createElement('td');
+    var ok = r.status === 'PROCESSED';
+    tdSt.innerHTML = '<span class="badge ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'Processed' : 'Failed') + '</span>';
+    tr.appendChild(tdSt);
+    rows.appendChild(tr);
+  }
+
+  function td(text, cls) {
+    var c = document.createElement('td');
+    if (cls) c.className = cls;
+    c.textContent = text || 'not found';
+    return c;
+  }
+
+  function conf(field) {
+    var c = document.createElement('td');
+    c.className = 'num';
+    var pct = field ? field.confidencePercent : null;
+    var span = document.createElement('span');
+    span.className = 'conf ' + (pct >= 80 ? 'g' : pct >= 50 ? 'm' : 'l');
+    span.textContent = pct != null ? pct.toFixed(1) + '%' : '—';
+    c.appendChild(span);
+    return c;
+  }
+
+  document.getElementById('viewJson').addEventListener('click', function () {
+    if (!lastData) return;
+    document.getElementById('jsonOut').textContent = JSON.stringify(lastData, null, 2);
+    document.getElementById('modal').classList.add('open');
+  });
+
+  document.getElementById('closeModal').addEventListener('click', function () {
+    document.getElementById('modal').classList.remove('open');
+  });
+})();
+</script>
+</body>
+</html>

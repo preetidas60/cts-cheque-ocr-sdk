@@ -1,0 +1,36 @@
+{
+  "name": "cts-cheque-ocr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CTS Cheque OCR Verification System (Unified Monorepo)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "server": "node server/index.js",
+    "client:dev": "vite client",
+    "client:build": "vite build client",
+    "dev": "concurrently \"npm run server\" \"npm run client:dev\""
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^8.2.0"
+  }
+}
