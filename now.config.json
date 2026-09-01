@@ -1,0 +1,8 @@
+{
+  "scope": "x_snc_cheque_ocr",
+  "name": "CTS Cheque OCR Verification App",
+  "version": "1.0.0",
+  "fluentDir": "src/fluent",
+  "serverModulesDir": "src/server",
+  "clientDir": "src/client"
+}

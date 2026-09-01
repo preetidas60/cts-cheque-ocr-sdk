@@ -1,34 +1,36 @@
-# SETUP.md — Full Setup, Architecture, and Configuration Guide
+# SETUP.md — ServiceNow SDK & Standalone Setup Guide
 
-This guide covers running the **CTS Cheque OCR Verification System** locally and in production environments (Node.js/Express backend, SQLite database, React 19 frontend, and Python PaddleOCR service).
+This guide covers running and deploying the **CTS Cheque OCR Verification System** using the **ServiceNow SDK (Fluent)** architecture.
 
 ---
 
-## 1. System Architecture Overview
+## 1. System Architecture & ServiceNow SDK Organization
 
-The system consists of four decoupled layers:
+The system is organized into a clean **ServiceNow SDK Compliant Structure**:
 
 ```
-┌────────────────────────────────┐       HTTP / REST API       ┌────────────────────────────────┐
-│       React 19 Frontend        ├────────────────────────────►│       Node.js Express API      │
-│  (Vite @ localhost:5173/5174)  │◄────────────────────────────┤    (Server @ localhost:3000)   │
-└────────────────────────────────┘     NDJSON / JSON Stream    └───────────────┬────────────────┘
-                                                                               │
-                                                    SQLite Storage             │  REST Calls
-                                                   (data/cts_cheques.db)       │  OCR_SERVICE_URL
-                                                                               ▼
-                                                               ┌────────────────────────────────┐
-                                                               │       Python OCR Service       │
-                                                               │  (FastAPI @ localhost:8000 or  │
-                                                               │   remote deployed URL endpoint)│
-                                                               └────────────────────────────────┘
+                               ┌─────────────────────────────────────────┐
+                               │             now.config.json             │
+                               │        (Scope: x_snc_cheque_ocr)        │
+                               └────────────────────┬────────────────────┘
+                                                    │
+        ┌───────────────────────────────────────────┼───────────────────────────────────────────┐
+        ▼                                           ▼                                           ▼
+┌───────────────────────────────┐       ┌───────────────────────────────┐       ┌───────────────────────────────┐
+│          src/client/          │       │          src/fluent/          │       │          src/server/          │
+│   (Next Experience / React)   │       │   (ServiceNow Fluent DSL)     │       │    (Modular Backend Logic)    │
+│                               │       │                               │       │                               │
+│  - BatchProcessorView.tsx     │       │  - cheque_batch.now.ts        │       │  - index.js (Express API)     │
+│  - Workspace / Cheque Viewer  │       │  - cheque_record.now.ts       │       │  - routes.js (REST Stream)    │
+│  - Dark CSS & Styling         │       │  - cheque_verification.now.ts │       │  - ocrServiceClient.js        │
+└───────────────────────────────┘       └───────────────────────────────┘       └───────────────────────────────┘
 ```
 
-### Component Roles:
-1. **Frontend (`client/`)**: Modern React 19 + TypeScript UI built with Vite. Provides live NDJSON batch streaming, cheque list tree view, high-resolution cheque image viewer with zoom/pan, confidence metrics, OCR model endpoint configuration, and account number verification.
-2. **Backend Server (`server/`)**: Express.js REST API server. Handles batch ingestion, NDJSON streaming, storage directory management (`storage/BATCH-XXX`), SQLite persistence, account verification, and background worker thread execution.
-3. **Database (`data/cts_cheques.db`)**: Local SQLite database storing `batches` and `cheque_records`.
-4. **Python OCR Service (`ocr-service/`)**: FastAPI + PaddleOCR engine service that accepts cheque files, pre-warms worker engine pools (`POST /pool/ensure`), extracts text fields (Account Number, Holder Name, Date, Amounts), calculates confidences, and returns structured OCR data.
+### Layer Roles:
+1. **ServiceNow Manifest (`now.config.json`)**: Configures application metadata scope (`x_snc_cheque_ocr`), version, and directory pointers for `fluentDir` (`src/fluent`), `serverModulesDir` (`src/server`), and `clientDir` (`src/client`).
+2. **Fluent Layer (`src/fluent/`)**: Uses ServiceNow Fluent TypeScript (`.now.ts`) to declaratively define application metadata (tables `x_snc_cheque_ocr_batch` & `x_snc_cheque_ocr_record`, Business Rules, Forms, ACLs).
+3. **Client Layer (`src/client/`)**: Holds front-end UI views, React 19 components, dark-mode CSS styling, interactive NDJSON stream readers, and cheque image viewers.
+4. **Server Layer (`src/server/`)**: Houses modular server-side logic, Express.js REST API routes, background OCR queue worker pool, and dynamic OCR service integrations.
 
 ---
 
@@ -36,9 +38,9 @@ The system consists of four decoupled layers:
 
 | Requirement | Purpose | Command to Check |
 |---|---|---|
+| **ServiceNow SDK (`@servicenow/sdk`)** | ServiceNow Fluent compilation & platform deployment | `now-sdk --version` |
 | **Node.js 18+ & npm** | Express backend server and React Vite frontend | `node -v` |
 | **Python 3.10 / 3.11** | Python PaddleOCR Service | `python3 --version` |
-| **PaddleOCR & PyMuPDF** | OCR text extraction and PDF rendering engine | Installed in virtualenv |
 
 ---
 
@@ -53,7 +55,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-*(The local OCR service will be live at `http://localhost:8000`)*
 
 ### Step 2: Install Node Dependencies
 In terminal 2 (at project root):
@@ -66,15 +67,26 @@ In terminal 2 (at project root):
 ```bash
 npm run dev
 ```
-This runs `concurrently` to start:
 - **Express Backend**: `http://localhost:3000`
-- **React Dev Server**: `http://localhost:5173` (or `http://localhost:5174`)
-
-Open **`http://localhost:5173`** in your browser!
+- **React Dev Server**: `http://localhost:5173`
 
 ---
 
-## 4. Configuring the OCR Model Service URL
+## 4. Deploying / Building with ServiceNow SDK
+
+To build and validate ServiceNow Fluent metadata using the ServiceNow SDK CLI:
+
+```bash
+# Build ServiceNow Fluent metadata (.now.ts -> XML app package)
+npx now-sdk build
+
+# Deploy package directly to ServiceNow Instance
+npx now-sdk deploy
+```
+
+---
+
+## 5. Configuring the OCR Model Service URL
 
 By default, the backend connects to the local OCR model service at `http://localhost:8000`. You can configure it to point to a deployed/remote instance (e.g. `https://ocr-engine.yourdomain.com`):
 
@@ -82,7 +94,7 @@ By default, the backend connects to the local OCR model service at `http://local
 1. Open the web app and click **Batch Upload & Realtime OCR** in the sidebar.
 2. Locate the **OCR Model Engine Endpoint (FastAPI / PaddleOCR)** input box.
 3. Enter your remote service URL (e.g. `https://ocr-engine.yourdomain.com`).
-4. Click **Process Cheques**. The backend will automatically send all OCR requests for that batch to your specified service URL.
+4. Click **Process Cheques**.
 
 ### Option B: Environment File (`.env`) & Variables (`OCR_SERVICE_URL`)
 Copy `.env.example` to `.env` in the root project folder:
@@ -94,93 +106,54 @@ Edit `.env` and set `OCR_SERVICE_URL`:
 PORT=3000
 OCR_SERVICE_URL=https://ocr-engine.yourdomain.com
 ```
-Or set `OCR_SERVICE_URL` in your shell before launching the server:
-```bash
-export OCR_SERVICE_URL="https://ocr-engine.yourdomain.com"
-npm run dev
-```
-
-### Option C: API Endpoint (`POST /api/cheques/config`)
-Update the default OCR model URL globally on the Express backend via REST:
-```bash
-curl -X POST http://localhost:3000/api/cheques/config \
-  -H "Content-Type: application/json" \
-  -d '{"ocrServiceUrl": "https://ocr-engine.yourdomain.com"}'
-```
 
 ---
 
-## 5. Parallel Processing & Worker Threads
-
-The application includes a **Parallel Files / Worker Threads** slider (1 to 8 threads).
-
-### How it Works:
-1. **Engine Pool Pre-warming**: When a batch begins, the backend sends a request to `${OCR_SERVICE_URL}/pool/ensure` to pre-warm a Python process pool of size `workerThreads`.
-2. **Concurrent Chunking**: Cheques in the batch queue are chunked and executed concurrently up to `workerThreads` in parallel.
-3. **Speedup**: Processing 5 cheques drops from ~11s (sequential 1 thread) to ~3.5s (parallel 4 threads).
-
----
-
-## 6. Available NPM Scripts
-
-| Command | Action |
-|---|---|
-| `npm run dev` | **Runs Express Server (:3000) + React Vite Dev Server (:5173) concurrently** |
-| `npm run server` | Starts only the Express Backend API (`node server/index.js`) |
-| `npm run client:dev` | Starts only the React Vite dev server (`http://localhost:5173`) |
-| `npm run client:build` | Compiles production bundle of React frontend into `client/dist/` |
-| `npm start` | Alias for `npm run server` |
-
----
-
-## 7. Directory Structure & Key Files
+## 6. Directory Structure & Key Files
 
 ```
 cts-cheque-ocr-sdk/
-├── package.json              ← Unified dependencies & scripts for backend & frontend
+├── now.config.json           ← ServiceNow SDK Manifest
+├── package.json              ← Unified dependencies & scripts
 ├── .env.example              ← Template environment configuration file
-├── .env                      ← Local environment configuration file (PORT, OCR_SERVICE_URL)
-├── README.md                 ← Project overview and specification summary
-├── SETUP.md                  ← This setup, architecture, and run guide
+├── .env                      ← Local environment configuration file
+├── README.md                 ← Project overview & ServiceNow setup
+├── SETUP.md                  ← This setup & architecture guide
 │
-├── server/                   ← Express Backend Server (Node.js)
-│   ├── index.js              → Express server entry point & disk auto-sync
-│   ├── routes.js             → API endpoints (/process/stream, /batches, /config, /verify)
-│   ├── db.js                 → SQLite database setup & queries (data/cts_cheques.db)
-│   ├── ocrWorker.js          → Background worker picking up PENDING cheques for OCR
-│   ├── ocrServiceClient.js    → Outbound REST client supporting dynamic OCR service URLs
-│   └── amountParser.js       → Safe amount parsing for Indian currency formats
+├── src/
+│   ├── fluent/               ← ServiceNow Fluent (.now.ts) Metadata & UX Definitions
+│   │   ├── index.now.ts      → Main Fluent export
+│   │   ├── tables/
+│   │   │   ├── cheque_batch.now.ts  → x_snc_cheque_ocr_batch definition
+│   │   │   └── cheque_record.now.ts → x_snc_cheque_ocr_record definition
+│   │   └── business-rules/
+│   │       └── cheque_verification.now.ts → Verification Business Rule
+│   │
+│   ├── client/               ← React 19 + TypeScript UI (Vite)
+│   │   ├── index.html        → Main React entry point
+│   │   ├── batch_processor.html → Standalone HTML Batch Processor Dashboard
+│   │   ├── components/       → Workspace, BatchProcessorView, Sidebar, TopBar
+│   │   ├── styles/           → Dark-mode custom CSS system
+│   │   ├── dist/             → Compiled client bundle (tracked by Git)
+│   │   └── data/             → Frontend source data (tracked by Git)
+│   │
+│   └── server/               ← Express Backend Server (Node.js)
+│       ├── index.js          → Express server entry point & storage auto-sync
+│       ├── routes.js         → API endpoints (/process/stream, /batches, /config)
+│       ├── db.js             → SQLite database setup & queries (data/cts_cheques.db)
+│       ├── ocrWorker.js      → Background worker pool
+│       └── ocrServiceClient.js → Dynamic REST client connecting to OCR Engine
 │
-├── client/                   ← React 19 + TypeScript Frontend (Vite)
-│   ├── index.html            → Main HTML entry point
-│   ├── batch_processor.html  → Standalone HTML dashboard page
-│   ├── components/
-│   │   └── Workspace/
-│   │       ├── BatchProcessorView.tsx → Realtime Batch Processor & Stream Dashboard
-│   │       ├── Workspace.tsx          → Cheque Verification & Zoom Viewer
-│   │       └── BatchListView.tsx      → Batch Overview & Stats
-│   ├── styles/               → Modern dark-mode custom CSS design system
-│   └── hooks/                → Polling & verification hooks
-│
-├── data/                     ← Local SQLite database storage (cts_cheques.db)
-├── storage/                  ← Automated batch directory storage (storage/BATCH-XXX)
+├── data/                     ← Local SQLite database storage (gitignored)
+├── storage/                  ← Automated batch directory storage (gitignored)
 └── ocr-service/              ← Python PaddleOCR Engine Service (FastAPI)
 ```
 
 ---
 
-## 9. Database Architecture & Git Rules
+## 7. Version Control (Git Rules)
 
-### Database Engine: SQLite 3
-The backend relies on **SQLite 3** (`sqlite3` npm package) to persist batch state and extracted cheque metadata into `./data/cts_cheques.db`.
-
-### Automatic Schema Management:
-- No migration scripts or database installation required.
-- On startup, [server/db.js](file:///home/atomic-shadow/development/cts-cheque-ocr-sdk/server/db.js) ensures `./data/` exists and runs `CREATE TABLE IF NOT EXISTS batches` and `CREATE TABLE IF NOT EXISTS cheque_records`.
-
-### Version Control (Git Rules):
 - **Root Database (`/data/`)**: **Ignored.** The root `./data/` directory and `.env` file are gitignored because they contain local runtime state (`cts_cheques.db`).
-- **Frontend Source Data (`client/data/`)**: **Tracked.** Contains critical source files (`menuTree.ts`, `messages.ts`, `chequeBatches.ts`) and is explicitly tracked (`!client/data/`).
-- **Frontend Distribution (`client/dist/`)**: **Tracked.** Compiled assets in `client/dist/` are explicitly tracked (`!client/dist/`).
+- **Frontend Source Data (`src/client/data/`)**: **Tracked.** Contains critical source files (`menuTree.ts`, `messages.ts`, `chequeBatches.ts`) and is explicitly tracked (`!src/client/data/`).
+- **Frontend Distribution (`src/client/dist/`)**: **Tracked.** Compiled assets in `src/client/dist/` are explicitly tracked (`!src/client/dist/`).
 - **Uploaded Cheques (`storage/`)**: Ignored except `storage/.gitkeep` to preserve directory structure.
-

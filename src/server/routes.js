@@ -15,12 +15,12 @@ const AmountParser = require('./amountParser');
 const OcrServiceClient = require('./ocrServiceClient');
 const { processOneCheque, finishBatch } = require('./ocrWorker');
 
-const storageDir = path.join(__dirname, '..', 'storage');
+const storageDir = path.join(__dirname, '..', '..', 'storage');
 if (!fs.existsSync(storageDir)) {
   fs.mkdirSync(storageDir, { recursive: true });
 }
 
-const upload = multer({ dest: path.join(__dirname, '..', 'tmp_uploads') });
+const upload = multer({ dest: path.join(__dirname, '..', '..', 'tmp_uploads') });
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp'];
 const MAX_CHEQUES = 250;

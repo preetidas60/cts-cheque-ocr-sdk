@@ -401,18 +401,14 @@ export const BatchProcessorView: React.FC = () => {
           </div>
         )}
 
-        {/* OCR Engine Service URL */}
+        {/* Active OCR Engine Indicator */}
         <div className="bp-folder-row" style={{ marginTop: "14px" }}>
-          <label className="bp-label" style={{ fontSize: "12.5px" }}>OCR Model Engine Endpoint (FastAPI / PaddleOCR):</label>
-          <input
-            type="text"
-            className="bp-input"
-            value={ocrServiceUrl}
-            onChange={(e) => setOcrServiceUrl(e.target.value)}
-            placeholder="http://localhost:8000"
-          />
-          <div className="bp-folder-note">
-            Target Python PaddleOCR model service endpoint. Defaults to <code>http://localhost:8000</code>. Change this URL when deploying or connecting to a remote OCR model service.
+          <div style={{ fontSize: "12.5px", color: "#475569" }}>
+            <span style={{ fontWeight: 600 }}>Active OCR Engine:</span>{" "}
+            <code style={{ background: "#eef2f6", padding: "2px 8px", borderRadius: "4px", color: "#1f5fd0", fontWeight: 700 }}>
+              {ocrServiceUrl || "http://localhost:8000"}
+            </code>{" "}
+            <span style={{ fontSize: "11.5px", color: "#64748b" }}>(automatically loaded from server .env)</span>
           </div>
         </div>
 

@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "CTS Cheque OCR Verification System (Unified Monorepo)",
-  "main": "server/index.js",
+  "main": "src/server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "server": "node server/index.js",
-    "client:dev": "vite client",
-    "client:build": "vite build client",
+    "start": "node src/server/index.js",
+    "server": "node src/server/index.js",
+    "client:dev": "vite src/client",
+    "client:build": "vite build src/client",
     "dev": "concurrently \"npm run server\" \"npm run client:dev\""
   },
   "dependencies": {

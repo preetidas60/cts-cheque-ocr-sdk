@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
 
 async function syncDiskStorage() {
   try {
-    const storageDir = path.join(__dirname, '..', 'storage');
+    const storageDir = path.join(__dirname, '..', '..', 'storage');
     if (!fs.existsSync(storageDir)) return;
 
     const files = fs.readdirSync(storageDir);
