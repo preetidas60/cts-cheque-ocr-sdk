@@ -179,7 +179,8 @@ The backend relies on **SQLite 3** (`sqlite3` npm package) to persist batch stat
 - On startup, [server/db.js](file:///home/atomic-shadow/development/cts-cheque-ocr-sdk/server/db.js) ensures `./data/` exists and runs `CREATE TABLE IF NOT EXISTS batches` and `CREATE TABLE IF NOT EXISTS cheque_records`.
 
 ### Version Control (Git Rules):
-- **Should `data/` be pushed to Git?**: **NO.** The `./data/` directory and `.env` file are explicitly listed in `.gitignore`.
-- Every developer or server environment auto-generates its own local `data/cts_cheques.db` file upon starting the application.
-- Uploaded files in `storage/` are also gitignored (except `storage/.gitkeep` to preserve the folder structure).
+- **Root Database (`/data/`)**: **Ignored.** The root `./data/` directory and `.env` file are gitignored because they contain local runtime state (`cts_cheques.db`).
+- **Frontend Source Data (`client/data/`)**: **Tracked.** Contains critical source files (`menuTree.ts`, `messages.ts`, `chequeBatches.ts`) and is explicitly tracked (`!client/data/`).
+- **Frontend Distribution (`client/dist/`)**: **Tracked.** Compiled assets in `client/dist/` are explicitly tracked (`!client/dist/`).
+- **Uploaded Cheques (`storage/`)**: Ignored except `storage/.gitkeep` to preserve directory structure.
 

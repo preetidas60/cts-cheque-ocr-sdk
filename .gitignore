@@ -4,8 +4,6 @@ ocr-service/venv/
 .venv/
 
 # Build Outputs & Caches
-dist/
-client/dist/
 *.tsbuildinfo
 .jest_cache
 .DS_Store
@@ -16,12 +14,17 @@ target/
 .env
 .env.local
 
-# Local Database Files (Do NOT push to git)
-data/
+# Local SQLite Database Files (Do NOT push root runtime data to git)
+/data/
 *.db
 *.sqlite
 *.sqlite3
 
 # Dynamic Local Storage Files (Do NOT push uploaded cheques to git)
-storage/*
+/storage/*
 !storage/.gitkeep
+
+# Explicitly ensure client/data (source files) and client/dist (build output) are tracked by git
+!client/data/
+!client/dist/
+!client/dist/**

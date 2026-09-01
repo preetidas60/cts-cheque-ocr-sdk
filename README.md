@@ -117,9 +117,9 @@ The application uses **SQLite 3** (`sqlite3`), an embedded, serverless, file-bas
   - `cheque_records`: Tracks individual cheque OCR results (account number, holder name, date, amounts, confidence scores, verification status, worker duration).
 
 ### Do I Have to Push the `data/` Folder to Git?
-**NO.** You do **not** need to push the `data/` folder or `.env` to Git:
-- `./data/` and `./data/cts_cheques.db` are **gitignored** in `.gitignore` because they contain local runtime state generated during testing/operation.
-- When another developer clones the repository and runs `npm run dev`, SQLite will automatically create a fresh `./data/cts_cheques.db` database on their machine.
+- **Root Runtime Database (`/data/cts_cheques.db`)**: **NO.** Root `/data/` is gitignored in `.gitignore` because it contains local runtime database state.
+- **Frontend Source Data (`client/data/`)**: **YES.** `client/data/` contains essential source files (`menuTree.ts`, `messages.ts`, `chequeBatches.ts`) and is **tracked by Git** (`!client/data/`).
+- **Frontend Distribution (`client/dist/`)**: **YES.** `client/dist/` is explicitly **tracked by Git** (`!client/dist/`).
 
 ---
 
